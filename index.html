@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Kurt Operasyonu</title>
+    <style>
+        body { margin: 0; overflow: hidden; background: #87CEEB; font-family: sans-serif; }
+        #ui { position: absolute; top: 20px; width: 100%; text-align: center; color: white; 
+              font-size: 32px; font-weight: bold; pointer-events: none; text-shadow: 2px 2px 8px #000; }
+        #yukleme { position: absolute; width: 100%; height: 100%; background: #222; 
+                   display: flex; flex-direction: column; justify-content: center; align-items: center; color: white; z-index: 100; }
+    </style>
+</head>
+<body>
+    <div id="yukleme">
+        <h1 id="durum-metni">KURT YÜKLENİYOR...</h1>
+        <p>Lütfen bekleyin, model dosyaları taranıyor.</p>
+    </div>
+    <div id="ui">GÜÇ: <span id="power">1</span></div>
+
+    <script src="https://unpkg.com/three@0.128.0/build/three.min.js"></script>
+    <script src="https://unpkg.com/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+
+    <script>
+        let scene, camera, renderer, player, mixer;
+        let clock = new THREE.Clock();
+        let targetX = 0, bullets = [], enemies = [], gates = [];
+        let bulletPower = 1;
+
+        function init() {
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x87CEEB);
+            scene.fog = new THREE.Fog(0x87CEEB, 20, 100);
+
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.set(0, 6, 12);
+
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.shadowMap.enabled = true;
+            document.body.appendChild(renderer.domElement);
+
+            scene.add(new THREE.AmbientLight(0xffffff, 0.8));
+            let sun = new THREE.DirectionalLight(0xffffff, 1.2);
+            sun.position.set(10, 20, 10);
+            sun.castShadow = true;
+            scene.add(sun);
+
+            // Yol
+            let road = new THREE.Mesh(new THREE.BoxGeometry(14, 1, 5000), new THREE.MeshStandardMaterial({ color: 0x444444 }));
+            road.position.y = -0.5;
+            road.receiveShadow = true;
+            scene.add(road);
+
+            // --- AKILLI MODEL YÜKLEME SİSTEMİ ---
+            const loader = new THREE.GLTFLoader();
+            // Senin klasöründeki tüm olası isimleri sırayla deneyecek:
+            const modelDosyalari = [
+                'wolf.glb', 
+                'Wolf-Blender-2.8 2a.glb', 
+                'wolf.gltf', 
+                'Wolf-Blender-2.8 2a.gltf'
+            ];
+
+            function modelYukle(index) {
+                if (index >= modelDosyalari.length) {
+                    yedekKarakterOlustur();
+                    return;
+                }
+
+                loader.load(modelDosyalari[index], (gltf) => {
+                    player = gltf.scene;
+                    player.scale.set(1.8, 1.8, 1.8);
+                    player.rotation.y = Math.PI; 
+                    player.traverse(n => { if(n.isMesh) n.castShadow = true; });
+                    scene.add(player);
+
+                    if (gltf.animations.length > 0) {
+                        mixer = new THREE.AnimationMixer(player);
+                        mixer.clipAction(gltf.animations[0]).play();
+                    }
+                    document.getElementById('yukleme').style.display = 'none';
+                    console.log("Yüklenen dosya: " + modelDosyalari[index]);
+                }, undefined, (err) => {
+                    console.warn(modelDosyalari[index] + " denendi ama bulunamadı.");
+                    modelYukle(index + 1); // Sıradakini dene
+                });
+            }
+
+            function yedekKarakterOlustur() {
+                console.error("Hiçbir model dosyası bulunamadı, mavi kutu devrede.");
+                player = new THREE.Mesh(new THREE.BoxGeometry(1.5, 1.5, 3), new THREE.MeshStandardMaterial({ color: 0x0000ff }));
+                scene.add(player);
+                document.getElementById('yukleme').style.display = 'none';
+            }
+
+            modelYukle(0); // İlk isimden denemeye başla
+
+            // Nesneleri Oluştur
+            for(let i=1; i<20; i++) {
+                createGate(Math.random() > 0.5 ? 3 : -3, -i * 50, Math.floor(Math.random()*10)+1);
+                createEnemy(Math.random() * 8 - 4, -i * 30 - 15);
+            }
+
+            window.addEventListener('pointermove', (e) => {
+                if (e.buttons === 1 || e.pointerType === 'touch') {
+                    targetX += e.movementX * 0.04;
+                    targetX = Math.max(-6, Math.min(6, targetX));
+                }
+            });
+
+            setInterval(shoot, 400); 
+            animate();
+        }
+
+        function createGate(x, z, val) {
+            let gate = new THREE.Group();
+            let color = val > 5 ? 0x00ff00 : 0x0088ff;
+            let mesh = new THREE.Mesh(new THREE.BoxGeometry(5, 6, 0.2), new THREE.MeshStandardMaterial({ color: color, transparent: true, opacity: 0.5 }));
+            gate.add(mesh);
+            gate.position.set(x, 3, z);
+            gate.userData = { value: val };
+            scene.add(gate);
+            gates.push(gate);
+        }
+
+        function createEnemy(x, z) {
+            let enemy = new THREE.Mesh(new THREE.BoxGeometry(2, 2, 2), new THREE.MeshStandardMaterial({ color: 0xff0000 }));
+            enemy.position.set(x, 1, z);
+            enemy.userData = { health: 3 };
+            scene.add(enemy);
+            enemies.push(enemy);
+        }
+
+        function shoot() {
+            if (!player) return;
+            let bullet = new THREE.Mesh(new THREE.SphereGeometry(0.2, 8, 8), new THREE.MeshBasicMaterial({ color: 0xffff00 }));
+            // Mermiyi kurdun ağız hizasına (biraz ileri ve yukarı) koyuyoruz
+            bullet.position.set(player.position.x, 1.5, player.position.z - 2);
+            scene.add(bullet);
+            bullets.push(bullet);
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            let delta = clock.getDelta();
+
+            if (player) {
+                player.position.z -= 0.25; 
+                player.position.x += (targetX - player.position.x) * 0.1;
+                
+                camera.position.set(player.position.x * 0.5, player.position.y + 7, player.position.z + 13);
+                camera.lookAt(player.position.x, 1, player.position.z - 5);
+
+                gates.forEach((g, i) => {
+                    if(player.position.distanceTo(g.position) < 2.5) {
+                        bulletPower += g.userData.value;
+                        document.getElementById('power').innerText = bulletPower;
+                        scene.remove(g);
+                        gates.splice(i, 1);
+                    }
+                });
+            }
+
+            bullets.forEach((b, bi) => {
+                b.position.z -= 1.0;
+                enemies.forEach((e, ei) => {
+                    if(b.position.distanceTo(e.position) < 1.8) {
+                        e.userData.health--;
+                        scene.remove(b);
+                        bullets.splice(bi, 1);
+                        if(e.userData.health <= 0) {
+                            scene.remove(e);
+                            enemies.splice(ei, 1);
+                        }
+                    }
+                });
+            });
+
+            if (mixer) mixer.update(delta);
+            renderer.render(scene, camera);
+        }
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        init();
+    </script>
+</body>
+</html>
