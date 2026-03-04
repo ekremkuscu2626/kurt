@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>3D Kurt Operasyonu - ULTRA DEV KURT</title>
+    <title>3D Kurt Operasyonu - YIKICI KURT</title>
     <style>
         body { margin: 0; overflow: hidden; background: #87CEEB; font-family: sans-serif; }
         #ui { position: absolute; top: 20px; width: 100%; text-align: center; color: white; 
@@ -14,10 +14,10 @@
 </head>
 <body>
     <div id="yukleme">
-        <h1 id="durum-metni">ULTRA DEV KURT UYANIYOR...</h1>
-        <p>Lütfen bekleyin, devasa model yükleniyor.</p>
+        <h1 id="durum-metni">YIKICI KURT HAZIR...</h1>
+        <p>Kutuları ezmek için ilerle!</p>
     </div>
-    <div id="ui">GÜÇ: <span id="power">1</span></div>
+    <div id="ui">EZİLEN KUTU: <span id="score">0</span></div>
 
     <script src="https://unpkg.com/three@0.128.0/build/three.min.js"></script>
     <script src="https://unpkg.com/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
@@ -25,16 +25,16 @@
     <script>
         let scene, camera, renderer, player, mixer;
         let clock = new THREE.Clock();
-        let targetX = 0, bullets = [], enemies = [], gates = [];
-        let bulletPower = 1;
+        let targetX = 0, enemies = [], gates = [];
+        let score = 0;
 
         function init() {
             scene = new THREE.Scene();
             scene.background = new THREE.Color(0x87CEEB);
-            scene.fog = new THREE.Fog(0x87CEEB, 40, 200); // Sis mesafesi dev boyuta göre açıldı
+            scene.fog = new THREE.Fog(0x87CEEB, 60, 300);
 
-            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 2000);
-            camera.position.set(0, 15, 35); // Kamera dev kurtu görebilmek için çok daha geriye ve yukarıya alındı
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 5000);
+            camera.position.set(0, 30, 60);
 
             renderer = new THREE.WebGLRenderer({ antialias: true });
             renderer.setSize(window.innerWidth, window.innerHeight);
@@ -43,18 +43,17 @@
 
             scene.add(new THREE.AmbientLight(0xffffff, 0.8));
             let sun = new THREE.DirectionalLight(0xffffff, 1.2);
-            sun.position.set(20, 40, 20);
+            sun.position.set(40, 80, 40);
             sun.castShadow = true;
             scene.add(sun);
 
-            // Yol biraz daha genişletildi
-            let road = new THREE.Mesh(new THREE.BoxGeometry(25, 1, 20000), new THREE.MeshStandardMaterial({ color: 0x444444 }));
+            // Yol
+            let road = new THREE.Mesh(new THREE.BoxGeometry(40, 1, 40000), new THREE.MeshStandardMaterial({ color: 0x222222 }));
             road.position.y = -0.5;
             road.receiveShadow = true;
             scene.add(road);
 
             const loader = new THREE.GLTFLoader();
-            // Dosya isimlerini kontrol ediyoruz
             const modelDosyalari = ['wolf.gltb', 'wolf.glb', 'wolf.gltf'];
 
             function modelYukle(index) {
@@ -65,7 +64,6 @@
 
                 loader.load(modelDosyalari[index], (gltf) => {
                     player = gltf.scene;
-                    // BOYUT TAM %100 ARTIRILDI: 2.7 -> 5.4
                     player.scale.set(10.8, 10.8, 10.8); 
                     player.rotation.y = Math.PI; 
                     player.traverse(n => { if(n.isMesh) n.castShadow = true; });
@@ -82,60 +80,41 @@
             }
 
             function yedekKarakterOlustur() {
-                // Yedek kutu da devasa yapıldı
-                player = new THREE.Mesh(new THREE.BoxGeometry(5, 5, 10), new THREE.MeshStandardMaterial({ color: 0x0000ff }));
+                player = new THREE.Mesh(new THREE.BoxGeometry(10, 10, 20), new THREE.MeshStandardMaterial({ color: 0x0000ff }));
                 scene.add(player);
                 document.getElementById('yukleme').style.display = 'none';
             }
 
             modelYukle(0);
 
-            // Engeller ve Kapılar dev boyutlara göre dağıtıldı
-            for(let i=1; i<60; i++) {
-                createGate(Math.random() > 0.5 ? 6 : -6, -i * 80, Math.floor(Math.random()*20)+5);
-                createEnemy(Math.random() * 16 - 8, -i * 50 - 40);
+            // Daha fazla kutu (Düşman) ekledik
+            for(let i=1; i<100; i++) {
+                createGate(Math.random() > 0.5 ? 10 : -10, -i * 120, 1);
+                createEnemy(Math.random() * 20 - 10, -i * 50 - 30);
             }
 
             window.addEventListener('pointermove', (e) => {
                 if (e.buttons === 1 || e.pointerType === 'touch') {
-                    targetX += e.movementX * 0.08;
-                    targetX = Math.max(-10, Math.min(10, targetX));
+                    targetX += e.movementX * 0.12;
+                    targetX = Math.max(-15, Math.min(15, targetX));
                 }
             });
 
-            setInterval(shoot, 350); 
             animate();
         }
 
-        function createGate(x, z, val) {
-            let gate = new THREE.Group();
-            let color = val > 10 ? 0x00ff00 : 0x0088ff;
-            // Kapılar dev kurda göre büyütüldü
-            let mesh = new THREE.Mesh(new THREE.BoxGeometry(9, 12, 0.3), new THREE.MeshStandardMaterial({ color: color, transparent: true, opacity: 0.5 }));
-            gate.add(mesh);
-            gate.position.set(x, 6, z);
-            gate.userData = { value: val };
+        function createGate(x, z) {
+            let gate = new THREE.Mesh(new THREE.BoxGeometry(15, 20, 0.5), new THREE.MeshStandardMaterial({ color: 0x0088ff, transparent: true, opacity: 0.5 }));
+            gate.position.set(x, 10, z);
             scene.add(gate);
             gates.push(gate);
         }
 
         function createEnemy(x, z) {
-            // Düşmanlar da biraz büyütüldü
-            let enemy = new THREE.Mesh(new THREE.BoxGeometry(4, 4, 4), new THREE.MeshStandardMaterial({ color: 0xff0000 }));
-            enemy.position.set(x, 2, z);
-            enemy.userData = { health: 5 };
+            let enemy = new THREE.Mesh(new THREE.BoxGeometry(6, 6, 6), new THREE.MeshStandardMaterial({ color: 0xff4400 }));
+            enemy.position.set(x, 3, z);
             scene.add(enemy);
             enemies.push(enemy);
-        }
-
-        function shoot() {
-            if (!player) return;
-            // Mermiler artık daha iri
-            let bullet = new THREE.Mesh(new THREE.SphereGeometry(0.5, 8, 8), new THREE.MeshBasicMaterial({ color: 0xffff00 }));
-            // Mermi çıkış yüksekliği dev ağız hizasına göre (4.5) ayarlandı
-            bullet.position.set(player.position.x, 4.5, player.position.z - 6);
-            scene.add(bullet);
-            bullets.push(bullet);
         }
 
         function animate() {
@@ -143,38 +122,37 @@
             let delta = clock.getDelta();
 
             if (player) {
-                player.position.z -= 0.4; 
+                player.position.z -= 0.7; // Biraz daha hızlandı
                 player.position.x += (targetX - player.position.x) * 0.1;
                 
-                // Kamera takibi devasa boyuta göre uyarlandı (daha yukarıdan bakış)
-                camera.position.set(player.position.x * 0.5, 18, player.position.z + 30);
-                camera.lookAt(player.position.x, 4, player.position.z - 10);
+                camera.position.set(player.position.x * 0.4, 35, player.position.z + 70);
+                camera.lookAt(player.position.x, 6, player.position.z - 20);
 
+                // --- ÇARPIŞMA VE KIRILMA MANTIĞI ---
+                
+                // Kapılara çarpma
                 gates.forEach((g, i) => {
-                    // Çarpışma alanı devasa gövdeye göre uyarlandı (6.0)
-                    if(player.position.distanceTo(g.position) < 6.0) {
-                        bulletPower += g.userData.value;
-                        document.getElementById('power').innerText = bulletPower;
+                    if(player.position.distanceTo(g.position) < 11.0) {
                         scene.remove(g);
                         gates.splice(i, 1);
+                        score++;
+                        document.getElementById('score').innerText = score;
+                    }
+                });
+
+                // Kutulara (Düşmanlara) çarpma ve kırma
+                enemies.forEach((e, i) => {
+                    if(player.position.distanceTo(e.position) < 9.0) {
+                        // Burada "kırılma" efekti için kutuyu siliyoruz
+                        scene.remove(e);
+                        enemies.splice(i, 1);
+                        score++;
+                        document.getElementById('score').innerText = score;
+                        
+                        // İstersen buraya bir ekran sarsıntısı ekleyebiliriz!
                     }
                 });
             }
-
-            bullets.forEach((b, bi) => {
-                b.position.z -= 1.8;
-                enemies.forEach((e, ei) => {
-                    if(b.position.distanceTo(e.position) < 4.0) {
-                        e.userData.health -= (bulletPower / 2);
-                        scene.remove(b);
-                        bullets.splice(bi, 1);
-                        if(e.userData.health <= 0) {
-                            scene.remove(e);
-                            enemies.splice(ei, 1);
-                        }
-                    }
-                });
-            });
 
             if (mixer) mixer.update(delta);
             renderer.render(scene, camera);
