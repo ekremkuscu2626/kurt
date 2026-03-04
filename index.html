@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>3D Kurt - Hitbox Sistemi</title>
+    <title>3D Kurt - Kesin Hitbox Çözümü</title>
     <style>
         body { margin: 0; overflow: hidden; background: #87CEEB; font-family: sans-serif; }
         #ui { position: absolute; top: 20px; width: 100%; text-align: center; color: white; 
@@ -13,9 +13,7 @@
     </style>
 </head>
 <body>
-    <div id="yukleme">
-        <h1>HITBOX AKTİF EDİLİYOR...</h1>
-    </div>
+    <div id="yukleme"><h1>HITBOX AYARLANIYOR...</h1></div>
     <div id="ui">YIKILAN: <span id="score">0</span></div>
 
     <script src="https://unpkg.com/three@0.128.0/build/three.min.js"></script>
@@ -27,19 +25,17 @@
         let targetX = 0, enemies = [], particles = [];
         let score = 0, shakeIntensity = 0;
         
-        // --- HITBOX DEĞİŞKENLERİ ---
-        let playerHitbox = new THREE.Box3();
-        let hitboxHelper; 
+        // --- HITBOX İÇİN KESİN DEĞİŞKENLER ---
+        let playerHitboxBox3 = new THREE.Box3();
+        let hitboxHelperMesh; 
 
         function init() {
             scene = new THREE.Scene();
             scene.background = new THREE.Color(0x87CEEB);
 
             camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 5000);
-            
             renderer = new THREE.WebGLRenderer({ antialias: true });
             renderer.setSize(window.innerWidth, window.innerHeight);
-            renderer.shadowMap.enabled = true;
             document.body.appendChild(renderer.domElement);
 
             scene.add(new THREE.AmbientLight(0xffffff, 0.8));
@@ -47,9 +43,16 @@
             sun.position.set(40, 80, 40);
             scene.add(sun);
 
-            let road = new THREE.Mesh(new THREE.BoxGeometry(60, 1, 40000), new THREE.MeshStandardMaterial({ color: 0x333333 }));
+            let road = new THREE.Mesh(new THREE.BoxGeometry(80, 1, 40000), new THREE.MeshStandardMaterial({ color: 0x333333 }));
             road.position.y = -0.5;
             scene.add(road);
+
+            // --- HITBOX GÖRSELİNİ ÖNCEDEN OLUŞTUR ---
+            // Genişlik: 8, Yükseklik: 10, Derinlik: 18 (Dev kurda uygun boyut)
+            let hitGeo = new THREE.BoxGeometry(8, 10, 18); 
+            let hitMat = new THREE.MeshBasicMaterial({ color: 0xff0000, wireframe: true });
+            hitboxHelperMesh = new THREE.Mesh(hitGeo, hitMat);
+            scene.add(hitboxHelperMesh); 
 
             const loader = new THREE.GLTFLoader();
             loader.load('wolf.glb', (gltf) => {
@@ -58,11 +61,6 @@
                 player.rotation.y = Math.PI; 
                 scene.add(player);
 
-                // --- HITBOX OLUŞTURMA ---
-                // Kurdun modeline göre bir kapsayıcı kutu oluşturur
-                hitboxHelper = new THREE.BoxHelper(player, 0xff0000);
-                scene.add(hitboxHelper); // Kırmızı çizgileri görmek istemezsen bu satırı silebilirsin
-
                 if (gltf.animations.length > 0) {
                     mixer = new THREE.AnimationMixer(player);
                     mixer.clipAction(gltf.animations[0]).play();
@@ -70,12 +68,12 @@
                 document.getElementById('yukleme').style.display = 'none';
             }, undefined, () => yedekKarakterOlustur());
 
-            for(let i=1; i<150; i++) createEnemy(Math.random() * 40 - 20, -i * 60 - 50);
+            for(let i=1; i<150; i++) createEnemy(Math.random() * 50 - 25, -i * 70 - 50);
 
             window.addEventListener('pointermove', (e) => {
                 if (e.buttons === 1 || e.pointerType === 'touch') {
                     targetX += e.movementX * 0.15;
-                    targetX = Math.max(-25, Math.min(25, targetX));
+                    targetX = Math.max(-30, Math.min(30, targetX));
                 }
             });
 
@@ -84,23 +82,20 @@
 
         function createEnemy(x, z) {
             let enemy = new THREE.Mesh(
-                new THREE.BoxGeometry(8, 8, 8), 
+                new THREE.BoxGeometry(10, 10, 10), 
                 new THREE.MeshStandardMaterial({ color: 0xff4400 })
             );
-            enemy.position.set(x, 4, z);
-            
-            // Düşman için de bir hitbox objesi ekleyelim
+            enemy.position.set(x, 5, z);
             enemy.userData.hitbox = new THREE.Box3(); 
-            
             scene.add(enemy);
             enemies.push(enemy);
         }
 
         function explode(x, y, z, color) {
-            for(let i=0; i<8; i++) {
+            for(let i=0; i<10; i++) {
                 let p = new THREE.Mesh(new THREE.BoxGeometry(2, 2, 2), new THREE.MeshBasicMaterial({ color: color }));
                 p.position.set(x, y, z);
-                p.userData = { vx: (Math.random()-0.5)*2, vy: Math.random()*2, vz: (Math.random()-0.5)*2, life: 1.0 };
+                p.userData = { vx: (Math.random()-0.5)*3, vy: Math.random()*3, vz: (Math.random()-0.5)*3, life: 1.0 };
                 scene.add(p);
                 particles.push(p);
             }
@@ -114,32 +109,33 @@
                 player.position.z -= 0.8; 
                 player.position.x += (targetX - player.position.x) * 0.1;
                 
-                // --- HITBOX GÜNCELLEME ---
-                playerHitbox.setFromObject(player); 
-                if(hitboxHelper) hitboxHelper.update(); 
+                // --- HITBOX'I KURDUN ÜSTÜNE SABİTLE ---
+                if(hitboxHelperMesh) {
+                    hitboxHelperMesh.position.set(player.position.x, player.position.y + 5, player.position.z);
+                    playerHitboxBox3.setFromObject(hitboxHelperMesh); // Çarpışmayı bu kutu üzerinden hesapla
+                }
 
-                camera.position.set(player.position.x * 0.4 + (Math.random()-0.5)*shakeIntensity, 40, player.position.z + 80);
+                camera.position.set(player.position.x * 0.4 + (Math.random()-0.5)*shakeIntensity, 45, player.position.z + 90);
                 camera.lookAt(player.position.x, 5, player.position.z - 20);
                 if(shakeIntensity > 0) shakeIntensity *= 0.9;
 
-                // --- HITBOX TABANLI ÇARPIŞMA ---
+                // --- ÇARPIŞMA KONTROLÜ ---
                 enemies.forEach((e, i) => {
-                    e.userData.hitbox.setFromObject(e); // Düşman kutusunu güncelle
-                    
-                    if(playerHitbox.intersectsBox(e.userData.hitbox)) { // Kutu kutuya değdi mi?
+                    e.userData.hitbox.setFromObject(e);
+                    if(playerHitboxBox3.intersectsBox(e.userData.hitbox)) {
                         explode(e.position.x, e.position.y, e.position.z, e.material.color);
                         scene.remove(e);
                         enemies.splice(i, 1);
                         score++;
                         document.getElementById('score').innerText = score;
-                        shakeIntensity = 1.5;
+                        shakeIntensity = 2.5; 
                     }
                 });
             }
 
             particles.forEach((p, i) => {
                 p.position.x += p.userData.vx; p.position.y += p.userData.vy; p.position.z += p.userData.vz;
-                p.userData.vy -= 0.05; p.userData.life -= 0.02;
+                p.userData.vy -= 0.08; p.userData.life -= 0.02;
                 p.scale.setScalar(p.userData.life);
                 if(p.userData.life <= 0) { scene.remove(p); particles.splice(i, 1); }
             });
