@@ -2,34 +2,23 @@
 <html lang="tr">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Bozkurt Destanı - Türk Devletleri Yolu</title>
     <style>
         body { margin: 0; overflow: hidden; background: #0a1a3e; font-family: 'Segoe UI', sans-serif; }
-        #ui { position: absolute; top: 20px; width: 100%; text-align: center; color: #F9D949; 
-              font-size: 32px; font-weight: bold; pointer-events: none; text-shadow: 2px 2px 8px #000; z-index: 10; }
-        #question-display { position: absolute; top: 80px; width: 100%; text-align: center; color: #FFFFFF;
-                            font-size: 28px; font-weight: bold; text-shadow: 3px 3px 10px #000; padding: 0 20px; z-index: 10; }
-        #yukleme { position: absolute; width: 100%; height: 100%; background: #000; 
-                   display: flex; flex-direction: column; justify-content: center; align-items: center; color: #F9D949; z-index: 100; }
+        #ui { position: absolute; top: 20px; width: 100%; text-align: center; color: #F9D949; font-size: 32px; font-weight: bold; text-shadow: 2px 2px 8px #000; z-index: 10; }
+        #question-display { position: absolute; top: 80px; width: 100%; text-align: center; color: #FFFFFF; font-size: 26px; font-weight: bold; text-shadow: 3px 3px 10px #000; z-index: 10; padding: 0 10px; }
     </style>
 </head>
 <body>
-    <div id="yukleme"><h1>DESTAN BAŞLIYOR...</h1><p>Bozkurt ve Bozkır Yükleniyor</p></div>
     <div id="ui">TÜRK GÜCÜ: <span id="score">0</span></div>
-    <div id="question-display">Soru Yükleniyor...</div>
+    <div id="question-display">Destan Yükleniyor...</div>
 
     <script src="https://unpkg.com/three@0.128.0/build/three.min.js"></script>
     <script src="https://unpkg.com/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
-    <script src="https://unpkg.com/three@0.128.0/examples/js/loaders/MTLLoader.js"></script>
-    <script src="https://unpkg.com/three@0.128.0/examples/js/loaders/OBJLoader.js"></script>
 
     <script>
-        let scene, camera, renderer, player, mixer;
-        let clock = new THREE.Clock();
-        let targetX = 0, particles = [], gates = [];
-        let score = 0, shakeIntensity = 0;
-        let currentQuestionIndex = 0;
+        let scene, camera, renderer, player, mixer, clock = new THREE.Clock();
+        let targetX = 0, score = 0, currentQuestionIndex = 0, gates = [];
 
         const questions = [
             { q: "Tarihteki ilk Türk devleti hangisidir?", options: ["Asya Hun", "Osmanlı"], correct: 0 },
@@ -38,80 +27,77 @@
             { q: "Türkiye Cumhuriyeti kaç yılında kuruldu?", options: ["1920", "1923"], correct: 1 },
             { q: "Selçuklu Devleti'nin sembolü nedir?", options: ["Çift Başlı Kartal", "Aslan"], correct: 0 }
         ];
-        
-        let playerHitboxBox3 = new THREE.Box3();
 
         function init() {
             scene = new THREE.Scene();
-            scene.background = new THREE.Color(0x0a1a3e); // Karanlığı lacivert bir gökyüzü ile değiştirdik
-            scene.fog = new THREE.Fog(0x0a1a3e, 1000, 12000);
+            scene.background = new THREE.Color(0x0a1a3e); // Gece Bozkırı Laciverti
+            scene.fog = new THREE.Fog(0x0a1a3e, 1000, 15000);
 
-            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 1, 200000); 
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 1, 200000);
             renderer = new THREE.WebGLRenderer({ antialias: true });
             renderer.setSize(window.innerWidth, window.innerHeight);
             document.body.appendChild(renderer.domElement);
 
-            // Görüntüdeki karanlığı çözmek için güçlü ışıklar
-            scene.add(new THREE.AmbientLight(0xffffff, 1.8)); 
-            let sun = new THREE.DirectionalLight(0xffffff, 1.2);
-            sun.position.set(500, 1500, 500);
+            // GÜÇLÜ IŞIKLANDIRMA
+            const ambient = new THREE.AmbientLight(0xffffff, 2.2);
+            scene.add(ambient);
+            const sun = new THREE.DirectionalLight(0xffffff, 1.5);
+            sun.position.set(0, 1000, 500);
             scene.add(sun);
 
-            // Zemin
-            let road = new THREE.Mesh(new THREE.BoxGeometry(2000, 10, 800000), new THREE.MeshStandardMaterial({ color: 0x4d3319 }));
-            road.position.y = -10;
+            // ZEMİN
+            const roadMat = new THREE.MeshStandardMaterial({ color: 0x4d3319 });
+            const road = new THREE.Mesh(new THREE.BoxGeometry(2500, 10, 800000), roadMat);
+            road.position.y = -5;
             scene.add(road);
 
-            // 1. KURT YÜKLEME
-            const gltfLoader = new THREE.GLTFLoader();
-            gltfLoader.load('wolf.glb', (gltf) => {
+            const loader = new THREE.GLTFLoader();
+
+            // 1. BOZKURT YÜKLEME
+            loader.load('wolf.glb', (gltf) => {
                 player = gltf.scene;
-                player.scale.set(80, 80, 80); 
-                player.rotation.y = Math.PI; 
+                player.scale.set(80, 80, 80);
+                player.rotation.y = Math.PI;
                 scene.add(player);
-                if (gltf.animations.length > 0) {
+                if(gltf.animations[0]) {
                     mixer = new THREE.AnimationMixer(player);
                     mixer.clipAction(gltf.animations[0]).play();
                 }
-                document.getElementById('yukleme').style.display = 'none';
                 spawnQuestionSet();
             });
 
-            // 2. AĞAÇLARI YÜKLEME
-            const mtlLoader = new THREE.MTLLoader();
-            mtlLoader.load('agac.mtl', (materials) => {
-                materials.preload();
-                const objLoader = new THREE.OBJLoader();
-                objLoader.setMaterials(materials);
-                objLoader.load('agac.obj', (object) => {
-                    for (let i = 0; i < 120; i++) {
-                        let treeL = object.clone();
-                        let treeR = object.clone();
-                        
-                        let s = 40; // Ağaçlar heybetli olsun
-                        treeL.scale.set(s, s, s);
-                        treeR.scale.set(s, s, s);
+            // 2. YENİ AĞAÇ (GLB) YÜKLEME
+            loader.load('agac.glb', (gltf) => {
+                const treeModel = gltf.scene;
+                for (let i = 0; i < 100; i++) {
+                    let tL = treeModel.clone();
+                    let tR = treeModel.clone();
+                    
+                    // Ölçek: .glb modellerde genellikle 10-50 arası idealdir
+                    // Eğer çok küçük olurlarsa bu rakamı büyüt
+                    let s = 40; 
+                    tL.scale.set(s, s, s); tR.scale.set(s, s, s);
 
-                        let zPos = -i * 1000 - 800;
-                        let xRnd = (Math.random() - 0.5) * 200;
+                    let z = -i * 1200 - 1000;
+                    let xOffset = (Math.random() - 0.5) * 200; // Hafif dağınıklık
 
-                        // Ağaçları yola iyice yaklaştırdık
-                        treeL.position.set(-800 + xRnd, 0, zPos);
-                        treeR.position.set(800 + xRnd, 0, zPos);
-                        
-                        treeL.rotation.y = Math.random() * Math.PI;
-                        treeR.rotation.y = Math.random() * Math.PI;
+                    tL.position.set(-900 + xOffset, 0, z);
+                    tR.position.set(900 + xOffset, 0, z);
+                    
+                    // Doğal görünüm için rastgele döndürme
+                    tL.rotation.y = Math.random() * Math.PI;
+                    tR.rotation.y = Math.random() * Math.PI;
 
-                        scene.add(treeL);
-                        scene.add(treeR);
-                    }
-                });
+                    scene.add(tL, tR);
+                }
+            }, undefined, (error) => {
+                console.error("Ağaç yüklenemedi, ama oyun devam ediyor:", error);
             });
 
+            // KONTROLLER
             window.addEventListener('pointermove', (e) => {
-                if (e.buttons === 1 || e.pointerType === 'touch') {
-                    targetX += e.movementX * 2.2;
-                    targetX = Math.max(-900, Math.min(900, targetX));
+                if(e.buttons === 1 || e.pointerType === 'touch') {
+                    targetX = Math.max(-1000, Math.min(1000, targetX + e.movementX * 2.5));
                 }
             });
 
@@ -122,98 +108,66 @@
             const canvas = document.createElement('canvas');
             canvas.width = 512; canvas.height = 256;
             const ctx = canvas.getContext('2d');
-            ctx.fillStyle = '#00ADB5'; 
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-            ctx.strokeStyle = '#F9D949'; 
-            ctx.lineWidth = 20;
-            ctx.strokeRect(10, 10, canvas.width - 20, canvas.height - 20);
-            ctx.fillStyle = 'white';
-            ctx.font = 'bold 60px Arial';
-            ctx.textAlign = 'center';
-            ctx.fillText(text, canvas.width / 2, canvas.height / 2 + 25);
+            ctx.fillStyle = '#00ADB5'; ctx.fillRect(0,0,512,256);
+            ctx.strokeStyle = '#F9D949'; ctx.lineWidth = 20; ctx.strokeRect(10,10,492,236);
+            ctx.fillStyle = 'white'; ctx.font = 'bold 50px Arial'; ctx.textAlign = 'center';
+            ctx.fillText(text, 256, 145);
             return new THREE.CanvasTexture(canvas);
         }
 
         function spawnQuestionSet() {
-            if (currentQuestionIndex >= questions.length) currentQuestionIndex = 0;
-            let qData = questions[currentQuestionIndex];
-            document.getElementById('question-display').innerText = qData.q;
-            let zPos = player ? player.position.z - 4500 : -4500;
-            createGate(qData.options[0], -450, zPos, 0 === qData.correct);
-            createGate(qData.options[1], 450, zPos, 1 === qData.correct);
+            if(!player) return;
+            let q = questions[currentQuestionIndex];
+            document.getElementById('question-display').innerText = q.q;
+            createGate(q.options[0], -500, player.position.z - 4500, q.correct === 0);
+            createGate(q.options[1], 500, player.position.z - 4500, q.correct === 1);
         }
 
-        function createGate(text, x, z, isCorrect) {
-            const texture = createTextTexture(text);
-            let gateGeo = new THREE.BoxGeometry(550, 350, 40);
-            let gateMat = new THREE.MeshStandardMaterial({ map: texture });
-            let gate = new THREE.Mesh(gateGeo, gateMat);
-            gate.position.set(x, 175, z);
-            gate.userData = { isCorrect: isCorrect, hitbox: new THREE.Box3(), active: true };
+        function createGate(txt, x, z, isCorrect) {
+            const gate = new THREE.Mesh(
+                new THREE.BoxGeometry(600, 400, 40),
+                new THREE.MeshStandardMaterial({ map: createTextTexture(txt) })
+            );
+            gate.position.set(x, 200, z);
+            gate.userData = { isCorrect, active: true };
             scene.add(gate);
             gates.push(gate);
         }
 
-        function explode(x, y, z, color) {
-            for(let i=0; i<30; i++) {
-                let p = new THREE.Mesh(new THREE.BoxGeometry(25, 25, 25), new THREE.MeshBasicMaterial({ color: color }));
-                p.position.set(x, y, z);
-                p.userData = { vx: (Math.random()-0.5)*45, vy: Math.random()*45, vz: (Math.random()-0.5)*45, life: 1.0 };
-                scene.add(p);
-                particles.push(p);
-            }
-        }
-
         function animate() {
             requestAnimationFrame(animate);
-            let delta = clock.getDelta();
+            let d = clock.getDelta();
             if (player) {
-                player.position.z -= 13.0; // Hızı biraz artırdım aksiyon için
-                player.position.x += (targetX - player.position.x) * 0.15;
-                
-                let min = new THREE.Vector3(player.position.x - 55, player.position.y, player.position.z - 80);
-                let max = new THREE.Vector3(player.position.x + 55, player.position.y + 130, player.position.z + 80);
-                playerHitboxBox3.set(min, max);
+                player.position.z -= 15;
+                player.position.x += (targetX - player.position.x) * 0.1;
 
-                // Kamerayı kurda biraz daha yaklaştırdım ve heybetli bir açıya aldım
-                camera.position.set(player.position.x * 0.5 + (Math.random()-0.5)*shakeIntensity, 400, player.position.z + 750);
-                camera.lookAt(player.position.x, 120, player.position.z - 300);
-                
-                if(shakeIntensity > 0) shakeIntensity *= 0.9;
+                camera.position.set(player.position.x * 0.6, 500, player.position.z + 900);
+                camera.lookAt(player.position.x, 150, player.position.z - 400);
 
                 gates.forEach((g) => {
-                    if(!g.userData.active) return;
-                    g.userData.hitbox.setFromObject(g);
-                    if(playerHitboxBox3.intersectsBox(g.userData.hitbox)) {
+                    if (g.userData.active && Math.abs(g.position.z - player.position.z) < 150 && Math.abs(g.position.x - player.position.x) < 350) {
                         g.userData.active = false;
-                        if(g.userData.isCorrect) {
-                            score += 100;
-                            explode(g.position.x, g.position.y, g.position.z, 0x00FF00);
-                        } else {
-                            score = Math.max(0, score - 50);
-                            explode(g.position.x, g.position.y, g.position.z, 0xFF0000);
-                            shakeIntensity = 25;
-                        }
+                        if (g.userData.isCorrect) score += 100; else score = Math.max(0, score - 50);
                         document.getElementById('score').innerText = score;
                         setTimeout(() => {
-                            gates.forEach(gate => scene.remove(gate));
+                            gates.forEach(gt => scene.remove(gt));
                             gates = [];
-                            currentQuestionIndex++;
+                            currentQuestionIndex = (currentQuestionIndex + 1) % questions.length;
                             spawnQuestionSet();
-                        }, 100);
+                        }, 200);
                     }
                 });
             }
-            particles.forEach((p, i) => {
-                p.position.x += p.userData.vx; p.position.y += p.userData.vy; p.position.z += p.userData.vz;
-                p.userData.vy -= 0.8; p.userData.life -= 0.025;
-                p.scale.setScalar(p.userData.life);
-                if(p.userData.life <= 0) { scene.remove(p); particles.splice(i, 1); }
-            });
-            if (mixer) mixer.update(delta);
+            if (mixer) mixer.update(d);
             renderer.render(scene, camera);
         }
+
         init();
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
     </script>
 </body>
 </html>
