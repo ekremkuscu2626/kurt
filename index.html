@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>3D Kurt - GERÇEK DEV BOYUT</title>
+    <title>3D Kurt - ULTIMATE GIGANTIC</title>
     <style>
         body { margin: 0; overflow: hidden; background: #87CEEB; font-family: sans-serif; }
         #ui { position: absolute; top: 20px; width: 100%; text-align: center; color: white; 
@@ -13,7 +13,7 @@
     </style>
 </head>
 <body>
-    <div id="yukleme"><h1>DEV KURT GERİ DÖNDÜ...</h1></div>
+    <div id="yukleme"><h1>100x ÖLÇEKLİ KURT YÜKLENİYOR...</h1></div>
     <div id="ui">YIKILAN: <span id="score">0</span></div>
 
     <script src="https://unpkg.com/three@0.128.0/build/three.min.js"></script>
@@ -30,29 +30,28 @@
         function init() {
             scene = new THREE.Scene();
             scene.background = new THREE.Color(0x87CEEB);
-            scene.fog = new THREE.Fog(0x87CEEB, 400, 3000);
+            scene.fog = new THREE.Fog(0x87CEEB, 800, 5000);
 
-            // Kamera açısını devasa hissettirecek şekilde ayarladım
-            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 1, 50000); 
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 1, 100000); 
             renderer = new THREE.WebGLRenderer({ antialias: true });
             renderer.setSize(window.innerWidth, window.innerHeight);
             document.body.appendChild(renderer.domElement);
 
             scene.add(new THREE.AmbientLight(0xffffff, 1.2));
             let sun = new THREE.DirectionalLight(0xffffff, 1.5);
-            sun.position.set(200, 400, 200);
+            sun.position.set(400, 800, 400);
             scene.add(sun);
 
-            // Yol
-            let road = new THREE.Mesh(new THREE.BoxGeometry(600, 2, 120000), new THREE.MeshStandardMaterial({ color: 0x111111 }));
-            road.position.y = -2;
+            // Yol - Kurda göre genişletildi
+            let road = new THREE.Mesh(new THREE.BoxGeometry(1200, 4, 200000), new THREE.MeshStandardMaterial({ color: 0x111111 }));
+            road.position.y = -5;
             scene.add(road);
 
             const loader = new THREE.GLTFLoader();
             loader.load('wolf.glb', (gltf) => {
                 player = gltf.scene;
-                // KESİN ÖLÇEK: 50
-                player.scale.set(50, 50, 50); 
+                // --- BOYUT 2 KATINA ÇIKARILDI: 100 ---
+                player.scale.set(100, 100, 100); 
                 player.rotation.y = Math.PI; 
                 scene.add(player);
 
@@ -63,12 +62,12 @@
                 document.getElementById('yukleme').style.display = 'none';
             }, undefined, () => yedekKarakterOlustur());
 
-            for(let i=1; i<300; i++) createEnemy((Math.random() - 0.5) * 400, -i * 180 - 300);
+            for(let i=1; i<300; i++) createEnemy((Math.random() - 0.5) * 800, -i * 300 - 500);
 
             window.addEventListener('pointermove', (e) => {
                 if (e.buttons === 1 || e.pointerType === 'touch') {
-                    targetX += e.movementX * 0.8;
-                    targetX = Math.max(-250, Math.min(250, targetX));
+                    targetX += e.movementX * 1.5;
+                    targetX = Math.max(-500, Math.min(500, targetX));
                 }
             });
 
@@ -77,20 +76,20 @@
 
         function createEnemy(x, z) {
             let enemy = new THREE.Mesh(
-                new THREE.BoxGeometry(40, 40, 40), 
+                new THREE.BoxGeometry(80, 80, 80), 
                 new THREE.MeshStandardMaterial({ color: 0xff3300 })
             );
-            enemy.position.set(x, 20, z);
+            enemy.position.set(x, 40, z);
             enemy.userData.hitbox = new THREE.Box3(); 
             scene.add(enemy);
             enemies.push(enemy);
         }
 
         function explode(x, y, z, color) {
-            for(let i=0; i<35; i++) {
-                let p = new THREE.Mesh(new THREE.BoxGeometry(10, 10, 10), new THREE.MeshBasicMaterial({ color: color }));
+            for(let i=0; i<40; i++) {
+                let p = new THREE.Mesh(new THREE.BoxGeometry(15, 15, 15), new THREE.MeshBasicMaterial({ color: color }));
                 p.position.set(x, y, z);
-                p.userData = { vx: (Math.random()-0.5)*15, vy: Math.random()*15, vz: (Math.random()-0.5)*15, life: 1.0 };
+                p.userData = { vx: (Math.random()-0.5)*25, vy: Math.random()*25, vz: (Math.random()-0.5)*25, life: 1.0 };
                 scene.add(p);
                 particles.push(p);
             }
@@ -101,17 +100,17 @@
             let delta = clock.getDelta();
 
             if (player) {
-                player.position.z -= 3.5; 
+                player.position.z -= 4.5; 
                 player.position.x += (targetX - player.position.x) * 0.15;
                 
-                // Görünmez hassas hitbox (Gövde merkezinde)
-                let min = new THREE.Vector3(player.position.x - 20, player.position.y, player.position.z - 40);
-                let max = new THREE.Vector3(player.position.x + 20, player.position.y + 60, player.position.z + 40);
+                // Hitbox kurdun yeni devasa boyutuna göre ayarlandı (Matematiksel)
+                let min = new THREE.Vector3(player.position.x - 40, player.position.y, player.position.z - 80);
+                let max = new THREE.Vector3(player.position.x + 40, player.position.y + 120, player.position.z + 80);
                 playerHitboxBox3.set(min, max);
 
-                // Kamera kurdun heybetini gösterecek şekilde ENSESİNDE
-                camera.position.set(player.position.x * 0.6 + (Math.random()-0.5)*shakeIntensity, 180, player.position.z + 450);
-                camera.lookAt(player.position.x, 50, player.position.z - 100);
+                // Kamera açısı dev boyutu koruyacak şekilde arkada
+                camera.position.set(player.position.x * 0.6 + (Math.random()-0.5)*shakeIntensity, 350, player.position.z + 800);
+                camera.lookAt(player.position.x, 100, player.position.z - 200);
                 
                 if(shakeIntensity > 0) shakeIntensity *= 0.92;
 
@@ -123,14 +122,14 @@
                         enemies.splice(i, 1);
                         score++;
                         document.getElementById('score').innerText = score;
-                        shakeIntensity = 8.0; 
+                        shakeIntensity = 12.0; 
                     }
                 });
             }
 
             particles.forEach((p, i) => {
                 p.position.x += p.userData.vx; p.position.y += p.userData.vy; p.position.z += p.userData.vz;
-                p.userData.vy -= 0.3; p.userData.life -= 0.02;
+                p.userData.vy -= 0.5; p.userData.life -= 0.02;
                 p.scale.setScalar(p.userData.life);
                 if(p.userData.life <= 0) { scene.remove(p); particles.splice(i, 1); }
             });
@@ -140,7 +139,7 @@
         }
 
         function yedekKarakterOlustur() {
-            player = new THREE.Mesh(new THREE.BoxGeometry(60, 80, 120), new THREE.MeshStandardMaterial({ color: 0x0000ff }));
+            player = new THREE.Mesh(new THREE.BoxGeometry(120, 160, 240), new THREE.MeshStandardMaterial({ color: 0x0000ff }));
             scene.add(player);
             document.getElementById('yukleme').style.display = 'none';
         }
