@@ -30,35 +30,35 @@
 
         function init() {
             scene = new THREE.Scene();
-            scene.background = new THREE.Color(0x0a1a3e); // Derin lacivert gökyüzü
-            scene.fog = new THREE.Fog(0x0a1a3e, 2000, 20000);
+            scene.background = new THREE.Color(0x0a1a3e); 
+            scene.fog = new THREE.Fog(0x0a1a3e, 3000, 25000);
 
-            camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 1, 100000);
+            camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 1, 200000);
             renderer = new THREE.WebGLRenderer({ antialias: true });
             renderer.setSize(window.innerWidth, window.innerHeight);
             renderer.setPixelRatio(window.devicePixelRatio);
             document.body.appendChild(renderer.domElement);
 
-            // AYDINLATMA - Görüntüdeki karanlığı tamamen çözer
-            const ambient = new THREE.AmbientLight(0xffffff, 2.5);
+            // GÜÇLÜ IŞIKLANDIRMA
+            const ambient = new THREE.AmbientLight(0xffffff, 2.8);
             scene.add(ambient);
-            const sun = new THREE.DirectionalLight(0xffffff, 1.8);
-            sun.position.set(500, 2000, 1000);
+            const sun = new THREE.DirectionalLight(0xffffff, 2.0);
+            sun.position.set(1000, 3000, 1500);
             scene.add(sun);
 
-            // ZEMİN (Yol genişliği ve derinliği optimize edildi)
-            const roadGeo = new THREE.BoxGeometry(4000, 10, 1000000);
-            const roadMat = new THREE.MeshStandardMaterial({ color: 0x5c4033 }); // Toprak rengi
+            // GENİŞLETİLMİŞ YOL
+            const roadGeo = new THREE.BoxGeometry(6000, 15, 1000000);
+            const roadMat = new THREE.MeshStandardMaterial({ color: 0x5c4033 });
             const road = new THREE.Mesh(roadGeo, roadMat);
-            road.position.y = -5;
+            road.position.y = -10;
             scene.add(road);
 
             const loader = new THREE.GLTFLoader();
 
-            // 1. BOZKURT ÖLÇEĞİ (Karakterin yoldaki duruşu)
+            // 1. BOZKURT YÜKLEME (180 Kat Büyütüldü)
             loader.load('wolf.glb', (gltf) => {
                 player = gltf.scene;
-                player.scale.set(120, 120, 120); // Daha belirgin bir kurt
+                player.scale.set(180, 180, 180); 
                 player.rotation.y = Math.PI;
                 scene.add(player);
                 if(gltf.animations[0]) {
@@ -68,21 +68,19 @@
                 spawnQuestionSet();
             });
 
-            // 2. AĞAÇ ÖLÇEĞİ (Heybetli orman hissi)
+            // 2. DEVASA AĞAÇLAR (400-600 Kat Büyütüldü)
             loader.load('agac.glb', (gltf) => {
                 const treeModel = gltf.scene;
-                for (let i = 0; i < 120; i++) {
+                for (let i = 0; i < 150; i++) {
                     let tL = treeModel.clone();
                     let tR = treeModel.clone();
                     
-                    // Ağaçlar artık çalı değil, devasa çamlar gibi görünecek
-                    let s = 250 + Math.random() * 100; 
+                    let s = 400 + Math.random() * 200; 
                     tL.scale.set(s, s, s); tR.scale.set(s, s, s);
 
-                    let z = -i * 1800 - 1500;
-                    // Yolun hemen kenarına ve biraz daha uzağına rastgele dizilim
-                    tL.position.set(-1300 - Math.random() * 800, 0, z);
-                    tR.position.set(1300 + Math.random() * 800, 0, z);
+                    let z = -i * 2000 - 2000;
+                    tL.position.set(-2500 - Math.random() * 1000, 0, z);
+                    tR.position.set(2500 + Math.random() * 1000, 0, z);
                     
                     tL.rotation.y = Math.random() * Math.PI;
                     tR.rotation.y = Math.random() * Math.PI;
@@ -91,10 +89,10 @@
                 }
             });
 
-            // KONTROLLER (Hassasiyet artırıldı)
+            // KONTROLLER
             window.addEventListener('pointermove', (e) => {
                 if(e.buttons === 1 || e.pointerType === 'touch') {
-                    targetX = Math.max(-1800, Math.min(1800, targetX + e.movementX * 3));
+                    targetX = Math.max(-2800, Math.min(2800, targetX + e.movementX * 4));
                 }
             });
 
@@ -105,7 +103,7 @@
             const canvas = document.createElement('canvas');
             canvas.width = 512; canvas.height = 256;
             const ctx = canvas.getContext('2d');
-            ctx.fillStyle = '#00ADB5'; ctx.fillRect(0,0,512,256); // Turkuaz ana renk
+            ctx.fillStyle = '#00ADB5'; ctx.fillRect(0,0,512,256);
             ctx.strokeStyle = '#F9D949'; ctx.lineWidth = 25; ctx.strokeRect(10,10,492,236);
             ctx.fillStyle = 'white'; ctx.font = 'bold 55px Arial'; ctx.textAlign = 'center';
             ctx.fillText(text, 256, 150);
@@ -115,19 +113,17 @@
         function spawnQuestionSet() {
             if(!player) return;
             let q = questions[currentQuestionIndex];
-            document.getElementById('question-display').innerText = q.q; //
-            // Kapıları kurdun hızına göre ileriye yerleştiriyoruz
-            createGate(q.options[0], -750, player.position.z - 6000, q.correct === 0);
-            createGate(q.options[1], 750, player.position.z - 6000, q.correct === 1);
+            document.getElementById('question-display').innerText = q.q;
+            createGate(q.options[0], -1200, player.position.z - 7000, q.correct === 0);
+            createGate(q.options[1], 1200, player.position.z - 7000, q.correct === 1);
         }
 
         function createGate(txt, x, z, isCorrect) {
-            // Kapı boyutları büyütüldü
             const gate = new THREE.Mesh(
-                new THREE.BoxGeometry(850, 500, 60),
+                new THREE.BoxGeometry(1500, 800, 80),
                 new THREE.MeshStandardMaterial({ map: createGateTexture(txt) })
             );
-            gate.position.set(x, 250, z);
+            gate.position.set(x, 400, z);
             gate.userData = { isCorrect, active: true };
             scene.add(gate);
             gates.push(gate);
@@ -137,21 +133,17 @@
             requestAnimationFrame(animate);
             let d = clock.getDelta();
             if (player) {
-                player.position.z -= 18; // Akıcı hız
+                player.position.z -= 25; // Sahneler büyüdüğü için hız artırıldı
                 player.position.x += (targetX - player.position.x) * 0.12;
 
-                // KAMERA ÖLÇEKLENDİRMESİ (Daha sinematik takip)
-                camera.position.set(player.position.x * 0.4, 650, player.position.z + 1200);
-                camera.lookAt(player.position.x, 200, player.position.z - 600);
+                // GENİŞ AÇILI SİNEMATİK KAMERA
+                camera.position.set(player.position.x * 0.3, 1000, player.position.z + 2200);
+                camera.lookAt(player.position.x, 300, player.position.z - 1000);
 
                 gates.forEach((g) => {
-                    if (g.userData.active && Math.abs(g.position.z - player.position.z) < 200 && Math.abs(g.position.x - player.position.x) < 450) {
+                    if (g.userData.active && Math.abs(g.position.z - player.position.z) < 300 && Math.abs(g.position.x - player.position.x) < 800) {
                         g.userData.active = false;
-                        if (g.userData.isCorrect) {
-                            score += 100;
-                        } else {
-                            score = Math.max(0, score - 50);
-                        }
+                        if (g.userData.isCorrect) score += 100; else score = Math.max(0, score - 50);
                         document.getElementById('score').innerText = score;
                         
                         setTimeout(() => {
