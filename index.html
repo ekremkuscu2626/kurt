@@ -3,24 +3,26 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>3D Kurt - Kelime Avı</title>
+    <title>Bozkurt Destanı - Türk Devletleri Yolu</title>
     <style>
-        body { margin: 0; overflow: hidden; background: #87CEEB; font-family: 'Arial Black', sans-serif; }
-        #ui { position: absolute; top: 20px; width: 100%; text-align: center; color: white; 
-              font-size: 32px; font-weight: bold; pointer-events: none; text-shadow: 2px 2px 8px #000; }
-        #question-display { position: absolute; top: 80px; width: 100%; text-align: center; color: #FFD700;
-                            font-size: 45px; font-weight: bold; text-shadow: 3px 3px 10px #000; }
-        #yukleme { position: absolute; width: 100%; height: 100%; background: #222; 
-                   display: flex; flex-direction: column; justify-content: center; align-items: center; color: white; z-index: 100; }
+        body { margin: 0; overflow: hidden; background: #001a33; font-family: 'Segoe UI', sans-serif; }
+        #ui { position: absolute; top: 20px; width: 100%; text-align: center; color: #F9D949; 
+              font-size: 36px; font-weight: bold; pointer-events: none; text-shadow: 2px 2px 8px #000; z-index: 10; }
+        #question-display { position: absolute; top: 90px; width: 100%; text-align: center; color: #FFFFFF;
+                            font-size: 32px; font-weight: bold; text-shadow: 4px 4px 12px #000; padding: 0 20px; z-index: 10; }
+        #yukleme { position: absolute; width: 100%; height: 100%; background: #000; 
+                   display: flex; flex-direction: column; justify-content: center; align-items: center; color: #F9D949; z-index: 100; }
     </style>
 </head>
 <body>
-    <div id="yukleme"><h1>SORULAR KAPILARA YAZILIYOR...</h1></div>
-    <div id="ui">PUAN: <span id="score">0</span></div>
-    <div id="question-display"></div>
+    <div id="yukleme"><h1>DESTAN BAŞLIYOR...</h1><p>Bozkurt ve Bozkır Yükleniyor</p></div>
+    <div id="ui">TÜRK GÜCÜ: <span id="score">0</span></div>
+    <div id="question-display">Soru Yükleniyor...</div>
 
     <script src="https://unpkg.com/three@0.128.0/build/three.min.js"></script>
     <script src="https://unpkg.com/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+    <script src="https://unpkg.com/three@0.128.0/examples/js/loaders/MTLLoader.js"></script>
+    <script src="https://unpkg.com/three@0.128.0/examples/js/loaders/OBJLoader.js"></script>
 
     <script>
         let scene, camera, renderer, player, mixer;
@@ -30,35 +32,37 @@
         let currentQuestionIndex = 0;
 
         const questions = [
-            { q: "Hangi meyve sarıdır?", options: ["Elma", "Muz"], correct: 1 },
-            { q: "Gökyüzü ne renktir?", options: ["Mavi", "Yeşil"], correct: 0 },
-            { q: "Güneş nereden doğar?", options: ["Batı", "Doğu"], correct: 1 },
-            { q: "5 x 5 kaç eder?", options: ["25", "50"], correct: 0 }
+            { q: "Tarihteki ilk Türk devleti hangisidir?", options: ["Asya Hun", "Osmanlı"], correct: 0 },
+            { q: "İstiklal Marşı'mızın yazarı kimdir?", options: ["Ziya Gökalp", "M. Akif Ersoy"], correct: 1 },
+            { q: "Bilge Kağan hangi devletin hükümdarıdır?", options: ["Göktürkler", "Uygurlar"], correct: 0 },
+            { q: "Türkiye Cumhuriyeti kaç yılında kuruldu?", options: ["1920", "1923"], correct: 1 },
+            { q: "Selçuklu Devleti'nin sembolü nedir?", options: ["Çift Başlı Kartal", "Aslan"], correct: 0 }
         ];
         
         let playerHitboxBox3 = new THREE.Box3();
 
         function init() {
             scene = new THREE.Scene();
-            scene.background = new THREE.Color(0x87CEEB);
-            scene.fog = new THREE.Fog(0x87CEEB, 500, 5000);
+            scene.fog = new THREE.Fog(0x0a1a3e, 1000, 10000);
 
-            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 1, 100000); 
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 1, 200000); 
             renderer = new THREE.WebGLRenderer({ antialias: true });
             renderer.setSize(window.innerWidth, window.innerHeight);
             document.body.appendChild(renderer.domElement);
 
             scene.add(new THREE.AmbientLight(0xffffff, 1.2));
             let sun = new THREE.DirectionalLight(0xffffff, 1.5);
-            sun.position.set(300, 600, 300);
+            sun.position.set(500, 1000, 500);
             scene.add(sun);
 
-            let road = new THREE.Mesh(new THREE.BoxGeometry(1500, 4, 300000), new THREE.MeshStandardMaterial({ color: 0x151515 }));
+            // Zemin (Bozkır Toprağı)
+            let road = new THREE.Mesh(new THREE.BoxGeometry(2500, 10, 600000), new THREE.MeshStandardMaterial({ color: 0x3d2b1f }));
             road.position.y = -10;
             scene.add(road);
 
-            const loader = new THREE.GLTFLoader();
-            loader.load('wolf.glb', (gltf) => {
+            // 1. KURT YÜKLEME (GLB)
+            const gltfLoader = new THREE.GLTFLoader();
+            gltfLoader.load('wolf.glb', (gltf) => {
                 player = gltf.scene;
                 player.scale.set(80, 80, 80); 
                 player.rotation.y = Math.PI; 
@@ -69,57 +73,80 @@
                 }
                 document.getElementById('yukleme').style.display = 'none';
                 spawnQuestionSet();
-            }, undefined, () => {
-                yedekKarakterOlustur();
-                spawnQuestionSet();
+            });
+
+            // 2. AĞAÇLARI YÜKLEME (OBJ & MTL)
+            const mtlLoader = new THREE.MTLLoader();
+            mtlLoader.load('agac.mtl', (materials) => {
+                materials.preload();
+                const objLoader = new THREE.OBJLoader();
+                objLoader.setMaterials(materials);
+                objLoader.load('agac.obj', (object) => {
+                    for (let i = 0; i < 80; i++) {
+                        let treeL = object.clone();
+                        let treeR = object.clone();
+                        
+                        // Dosyadaki boyuta göre burayı 1-20 arası deneyebilirsin
+                        let s = 15; 
+                        treeL.scale.set(s, s, s);
+                        treeR.scale.set(s, s, s);
+
+                        let zPos = -i * 1500 - 1000;
+                        let xRnd = (Math.random() - 0.5) * 400;
+
+                        treeL.position.set(-1100 + xRnd, 0, zPos);
+                        treeR.position.set(1100 + xRnd, 0, zPos);
+                        
+                        treeL.rotation.y = Math.random() * Math.PI;
+                        treeR.rotation.y = Math.random() * Math.PI;
+
+                        scene.add(treeL);
+                        scene.add(treeR);
+                    }
+                });
             });
 
             window.addEventListener('pointermove', (e) => {
                 if (e.buttons === 1 || e.pointerType === 'touch') {
-                    targetX += e.movementX * 1.5;
-                    targetX = Math.max(-600, Math.min(600, targetX));
+                    targetX += e.movementX * 2;
+                    targetX = Math.max(-1000, Math.min(1000, targetX));
                 }
             });
 
             animate();
         }
 
-        // Kapı Üzerine Yazı Yazma Fonksiyonu
         function createTextTexture(text) {
             const canvas = document.createElement('canvas');
-            canvas.width = 512;
-            canvas.height = 256;
+            canvas.width = 512; canvas.height = 256;
             const ctx = canvas.getContext('2d');
-            ctx.fillStyle = '#1E90FF'; // Kapı arka plan rengi
+            ctx.fillStyle = '#00ADB5'; // Turkuaz
             ctx.fillRect(0, 0, canvas.width, canvas.height);
-            ctx.strokeStyle = 'white';
-            ctx.lineWidth = 15;
+            ctx.strokeStyle = '#F9D949'; // Altın
+            ctx.lineWidth = 20;
             ctx.strokeRect(10, 10, canvas.width - 20, canvas.height - 20);
             ctx.fillStyle = 'white';
-            ctx.font = 'bold 80px Arial';
+            ctx.font = 'bold 65px Arial';
             ctx.textAlign = 'center';
-            ctx.fillText(text, canvas.width / 2, canvas.height / 2 + 30);
-            const texture = new THREE.CanvasTexture(canvas);
-            return texture;
+            ctx.fillText(text, canvas.width / 2, canvas.height / 2 + 25);
+            return new THREE.CanvasTexture(canvas);
         }
 
         function spawnQuestionSet() {
             if (currentQuestionIndex >= questions.length) currentQuestionIndex = 0;
             let qData = questions[currentQuestionIndex];
             document.getElementById('question-display').innerText = qData.q;
-
-            let zPos = player ? player.position.z - 2500 : -2500;
-
-            createGate(qData.options[0], -280, zPos, 0 === qData.correct);
-            createGate(qData.options[1], 280, zPos, 1 === qData.correct);
+            let zPos = player ? player.position.z - 4000 : -4000;
+            createGate(qData.options[0], -500, zPos, 0 === qData.correct);
+            createGate(qData.options[1], 500, zPos, 1 === qData.correct);
         }
 
         function createGate(text, x, z, isCorrect) {
             const texture = createTextTexture(text);
-            let gateGeo = new THREE.BoxGeometry(350, 250, 30);
-            let gateMat = new THREE.MeshStandardMaterial({ map: texture, transparent: true, opacity: 0.9 });
+            let gateGeo = new THREE.BoxGeometry(600, 350, 40);
+            let gateMat = new THREE.MeshStandardMaterial({ map: texture });
             let gate = new THREE.Mesh(gateGeo, gateMat);
-            gate.position.set(x, 120, z);
+            gate.position.set(x, 170, z);
             gate.userData = { isCorrect: isCorrect, hitbox: new THREE.Box3(), active: true };
             scene.add(gate);
             gates.push(gate);
@@ -127,9 +154,9 @@
 
         function explode(x, y, z, color) {
             for(let i=0; i<40; i++) {
-                let p = new THREE.Mesh(new THREE.BoxGeometry(15, 15, 15), new THREE.MeshBasicMaterial({ color: color }));
+                let p = new THREE.Mesh(new THREE.BoxGeometry(20, 20, 20), new THREE.MeshBasicMaterial({ color: color }));
                 p.position.set(x, y, z);
-                p.userData = { vx: (Math.random()-0.5)*30, vy: Math.random()*30, vz: (Math.random()-0.5)*30, life: 1.0 };
+                p.userData = { vx: (Math.random()-0.5)*40, vy: Math.random()*40, vz: (Math.random()-0.5)*40, life: 1.0 };
                 scene.add(p);
                 particles.push(p);
             }
@@ -138,36 +165,33 @@
         function animate() {
             requestAnimationFrame(animate);
             let delta = clock.getDelta();
-
             if (player) {
-                player.position.z -= 8.0; 
+                player.position.z -= 12.0; 
                 player.position.x += (targetX - player.position.x) * 0.15;
                 
-                let min = new THREE.Vector3(player.position.x - 40, player.position.y, player.position.z - 60);
-                let max = new THREE.Vector3(player.position.x + 40, player.position.y + 100, player.position.z + 60);
+                let min = new THREE.Vector3(player.position.x - 50, player.position.y, player.position.z - 80);
+                let max = new THREE.Vector3(player.position.x + 50, player.position.y + 120, player.position.z + 80);
                 playerHitboxBox3.set(min, max);
 
-                camera.position.set(player.position.x * 0.5 + (Math.random()-0.5)*shakeIntensity, 300, player.position.z + 600);
-                camera.lookAt(player.position.x, 80, player.position.z - 200);
+                camera.position.set(player.position.x * 0.5 + (Math.random()-0.5)*shakeIntensity, 450, player.position.z + 900);
+                camera.lookAt(player.position.x, 100, player.position.z - 200);
                 
                 if(shakeIntensity > 0) shakeIntensity *= 0.9;
 
-                gates.forEach((g, i) => {
+                gates.forEach((g) => {
                     if(!g.userData.active) return;
                     g.userData.hitbox.setFromObject(g);
-                    
                     if(playerHitboxBox3.intersectsBox(g.userData.hitbox)) {
                         g.userData.active = false;
                         if(g.userData.isCorrect) {
-                            score += 20;
-                            explode(g.position.x, g.position.y, g.position.z, 0x00FF00); // Yeşil patlama
+                            score += 100;
+                            explode(g.position.x, g.position.y, g.position.z, 0x00FF00);
                         } else {
-                            score = Math.max(0, score - 10);
-                            explode(g.position.x, g.position.y, g.position.z, 0xFF0000); // Kırmızı patlama
-                            shakeIntensity = 20;
+                            score = Math.max(0, score - 50);
+                            explode(g.position.x, g.position.y, g.position.z, 0xFF0000);
+                            shakeIntensity = 25;
                         }
                         document.getElementById('score').innerText = score;
-                        
                         setTimeout(() => {
                             gates.forEach(gate => scene.remove(gate));
                             gates = [];
@@ -177,24 +201,15 @@
                     }
                 });
             }
-
             particles.forEach((p, i) => {
                 p.position.x += p.userData.vx; p.position.y += p.userData.vy; p.position.z += p.userData.vz;
-                p.userData.vy -= 0.6; p.userData.life -= 0.03;
+                p.userData.vy -= 0.6; p.userData.life -= 0.02;
                 p.scale.setScalar(p.userData.life);
                 if(p.userData.life <= 0) { scene.remove(p); particles.splice(i, 1); }
             });
-
             if (mixer) mixer.update(delta);
             renderer.render(scene, camera);
         }
-
-        function yedekKarakterOlustur() {
-            player = new THREE.Mesh(new THREE.BoxGeometry(80, 100, 160), new THREE.MeshStandardMaterial({ color: 0x0000ff }));
-            scene.add(player);
-            document.getElementById('yukleme').style.display = 'none';
-        }
-
         init();
     </script>
 </body>
