@@ -3,18 +3,21 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>3D Kurt - GERÇEK DEVASA BOYUT</title>
+    <title>3D Kurt - Bilgi Yarışı</title>
     <style>
-        body { margin: 0; overflow: hidden; background: #87CEEB; font-family: sans-serif; }
+        body { margin: 0; overflow: hidden; background: #87CEEB; font-family: 'Segoe UI', sans-serif; }
         #ui { position: absolute; top: 20px; width: 100%; text-align: center; color: white; 
               font-size: 32px; font-weight: bold; pointer-events: none; text-shadow: 2px 2px 8px #000; }
+        #question-ui { position: absolute; bottom: 50px; width: 100%; text-align: center; color: #fff;
+                       font-size: 40px; font-weight: bold; text-shadow: 3px 3px 10px #000; display: none; }
         #yukleme { position: absolute; width: 100%; height: 100%; background: #222; 
                    display: flex; flex-direction: column; justify-content: center; align-items: center; color: white; z-index: 100; }
     </style>
 </head>
 <body>
-    <div id="yukleme"><h1>DEV KURT EKRANI KAPLIYOR...</h1></div>
-    <div id="ui">EZİLEN: <span id="score">0</span></div>
+    <div id="yukleme"><h1>SORULAR HAZIRLANIYOR...</h1></div>
+    <div id="ui">SKOR: <span id="score">0</span></div>
+    <div id="question-ui" id="current-q">SORU GELİYOR...</div>
 
     <script src="https://unpkg.com/three@0.128.0/build/three.min.js"></script>
     <script src="https://unpkg.com/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
@@ -22,76 +25,104 @@
     <script>
         let scene, camera, renderer, player, mixer;
         let clock = new THREE.Clock();
-        let targetX = 0, enemies = [], particles = [];
+        let targetX = 0, enemies = [], particles = [], gates = [];
         let score = 0, shakeIntensity = 0;
+        let currentQuestionIndex = 0;
+
+        // SORU HAVUZU
+        const questions = [
+            { q: "2 + 2 kaç eder?", options: ["4", "5"], correct: 0 },
+            { q: "Türkiye'nin başkenti neresidir?", options: ["İstanbul", "Ankara"], correct: 1 },
+            { q: "Dünya hangi gezegendir?", options: ["3. Gezegen", "5. Gezegen"], correct: 0 },
+            { q: "Hangi hayvan havlar?", options: ["Kedi", "Köpek"], correct: 1 }
+        ];
         
         let playerHitboxBox3 = new THREE.Box3();
 
         function init() {
             scene = new THREE.Scene();
             scene.background = new THREE.Color(0x87CEEB);
-            scene.fog = new THREE.Fog(0x87CEEB, 200, 4000);
+            scene.fog = new THREE.Fog(0x87CEEB, 300, 5000);
 
             camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 1, 100000); 
             renderer = new THREE.WebGLRenderer({ antialias: true });
             renderer.setSize(window.innerWidth, window.innerHeight);
             document.body.appendChild(renderer.domElement);
 
-            scene.add(new THREE.AmbientLight(0xffffff, 1.5));
+            scene.add(new THREE.AmbientLight(0xffffff, 1.2));
             let sun = new THREE.DirectionalLight(0xffffff, 1.5);
-            sun.position.set(400, 800, 400);
+            sun.position.set(300, 600, 300);
             scene.add(sun);
 
-            // Genişletilmiş Yol
-            let road = new THREE.Mesh(new THREE.BoxGeometry(2000, 4, 200000), new THREE.MeshStandardMaterial({ color: 0x111111 }));
-            road.position.y = -10;
+            let road = new THREE.Mesh(new THREE.BoxGeometry(1500, 4, 200000), new THREE.MeshStandardMaterial({ color: 0x151515 }));
+            road.position.y = -5;
             scene.add(road);
 
             const loader = new THREE.GLTFLoader();
             loader.load('wolf.glb', (gltf) => {
                 player = gltf.scene;
-                // --- KURT 100 ÖLÇEĞİNDE (DEV) ---
-                player.scale.set(50, 50, 50); 
+                player.scale.set(80, 80, 80); 
                 player.rotation.y = Math.PI; 
                 scene.add(player);
-
                 if (gltf.animations.length > 0) {
                     mixer = new THREE.AnimationMixer(player);
                     mixer.clipAction(gltf.animations[0]).play();
                 }
                 document.getElementById('yukleme').style.display = 'none';
-            }, undefined, () => yedekKarakterOlustur());
-
-            // Kutuları küçülttüm ve daha sık yerleştirdim
-            for(let i=1; i<400; i++) createEnemy((Math.random() - 0.5) * 1000, -i * 100 - 500);
+                spawnQuestionSet(); // İlk soruyu oluştur
+            }, undefined, () => {
+                yedekKarakterOlustur();
+                spawnQuestionSet();
+            });
 
             window.addEventListener('pointermove', (e) => {
                 if (e.buttons === 1 || e.pointerType === 'touch') {
-                    targetX += e.movementX * 1.8;
-                    targetX = Math.max(-800, Math.min(800, targetX));
+                    targetX += e.movementX * 1.5;
+                    targetX = Math.max(-600, Math.min(600, targetX));
                 }
             });
 
             animate();
         }
 
-        function createEnemy(x, z) {
-            // --- KUTULARI KÜÇÜK TUTUYORUZ (KURT DEV GÖRÜNSÜN DİYE) ---
-            let enemy = new THREE.Mesh(
-                new THREE.BoxGeometry(20, 20, 20), 
-                new THREE.MeshStandardMaterial({ color: 0xff3300 })
-            );
-            enemy.position.set(x, 0, z);
-            enemy.userData.hitbox = new THREE.Box3(); 
-            scene.add(enemy);
-            enemies.push(enemy);
+        // SORU VE SEÇENEK KAPILARINI OLUŞTURMA
+        function spawnQuestionSet() {
+            if (currentQuestionIndex >= questions.length) currentQuestionIndex = 0;
+            let qData = questions[currentQuestionIndex];
+            let zPos = player ? player.position.z - 2000 : -2000;
+
+            // Ekranda soruyu göster
+            document.getElementById('question-ui').style.display = 'block';
+            document.getElementById('question-ui').innerText = qData.q;
+
+            // Sol Kapı (Seçenek 0)
+            createGate(qData.options[0], -250, zPos, 0 === qData.correct);
+            // Sağ Kapı (Seçenek 1)
+            createGate(qData.options[1], 250, zPos, 1 === qData.correct);
+        }
+
+        function createGate(text, x, z, isCorrect) {
+            // Kapı çerçevesi
+            let gateGeo = new THREE.BoxGeometry(300, 400, 20);
+            let gateMat = new THREE.MeshStandardMaterial({ 
+                color: isCorrect ? 0x00ff00 : 0xff0000, 
+                transparent: true, 
+                opacity: 0.5 
+            });
+            let gate = new THREE.Mesh(gateGeo, gateMat);
+            gate.position.set(x, 150, z);
+            gate.userData = { isCorrect: isCorrect, hitbox: new THREE.Box3(), active: true };
+            
+            // Seçenek yazısı yerine basit renkli kutular (Şimdilik görsel amaçlı)
+            scene.add(gate);
+            gates.push(gate);
         }
 
         function explode(x, y, z, color) {
-            for(let i=0; i<20; i++) {
-                let p = new THREE.Mesh(new THREE.BoxGeometry(5, 5, 5), new THREE.MeshBasicMaterial({ color: color }));
+            for(let i=0; i<30; i++) {
+                let p = new THREE.Mesh(new THREE.BoxGeometry(15, 15, 15), new THREE.MeshBasicMaterial({ color: color }));
                 p.position.set(x, y, z);
-                p.userData = { vx: (Math.random()-0.5)*20, vy: Math.random()*20, vz: (Math.random()-0.5)*20, life: 1.0 };
+                p.userData = { vx: (Math.random()-0.5)*25, vy: Math.random()*25, vz: (Math.random()-0.5)*25, life: 1.0 };
                 scene.add(p);
                 particles.push(p);
             }
@@ -102,36 +133,48 @@
             let delta = clock.getDelta();
 
             if (player) {
-                player.position.z -= 6.0; // Dev cüsse için daha hızlı akış
+                player.position.z -= 10.0; // Sorular için hızı biraz sabitledik
                 player.position.x += (targetX - player.position.x) * 0.15;
                 
-                // Görünmez hitbox (Kurdun dev gövdesine tam uyumlu)
-                let min = new THREE.Vector3(player.position.x - 45, player.position.y, player.position.z - 80);
-                let max = new THREE.Vector3(player.position.x + 45, player.position.y + 120, player.position.z + 80);
+                let min = new THREE.Vector3(player.position.x - 35, player.position.y, player.position.z - 60);
+                let max = new THREE.Vector3(player.position.x + 35, player.position.y + 80, player.position.z + 60);
                 playerHitboxBox3.set(min, max);
 
-                // --- KAMERAYI KURDA YAKLAŞTIRDIM (DEVASA HİS İÇİN) ---
-                camera.position.set(player.position.x * 0.5 + (Math.random()-0.5)*shakeIntensity, 250, player.position.z + 550);
-                camera.lookAt(player.position.x, 80, player.position.z - 200);
+                camera.position.set(player.position.x * 0.5 + (Math.random()-0.5)*shakeIntensity, 350, player.position.z + 700);
+                camera.lookAt(player.position.x, 100, player.position.z - 200);
                 
                 if(shakeIntensity > 0) shakeIntensity *= 0.9;
 
-                enemies.forEach((e, i) => {
-                    e.userData.hitbox.setFromObject(e);
-                    if(playerHitboxBox3.intersectsBox(e.userData.hitbox)) {
-                        explode(e.position.x, e.position.y, e.position.z, e.material.color);
-                        scene.remove(e);
-                        enemies.splice(i, 1);
-                        score++;
+                // Kapı Çarpışma Kontrolü
+                gates.forEach((g, i) => {
+                    if(!g.userData.active) return;
+                    g.userData.hitbox.setFromObject(g);
+                    
+                    if(playerHitboxBox3.intersectsBox(g.userData.hitbox)) {
+                        g.userData.active = false;
+                        if(g.userData.isCorrect) {
+                            score += 10;
+                            shakeIntensity = 5; // Hafif başarı sarsıntısı
+                        } else {
+                            score = Math.max(0, score - 5);
+                            shakeIntensity = 25; // Hata sarsıntısı
+                        }
                         document.getElementById('score').innerText = score;
-                        shakeIntensity = 15.0; // Sarsıntı dev cüsse için daha sert
+                        
+                        // Kapıları temizle ve yeni soruya geç
+                        setTimeout(() => {
+                            gates.forEach(gate => scene.remove(gate));
+                            gates = [];
+                            currentQuestionIndex++;
+                            spawnQuestionSet();
+                        }, 200);
                     }
                 });
             }
 
             particles.forEach((p, i) => {
                 p.position.x += p.userData.vx; p.position.y += p.userData.vy; p.position.z += p.userData.vz;
-                p.userData.vy -= 0.6; p.userData.life -= 0.03;
+                p.userData.vy -= 0.5; p.userData.life -= 0.02;
                 p.scale.setScalar(p.userData.life);
                 if(p.userData.life <= 0) { scene.remove(p); particles.splice(i, 1); }
             });
@@ -141,7 +184,7 @@
         }
 
         function yedekKarakterOlustur() {
-            player = new THREE.Mesh(new THREE.BoxGeometry(100, 150, 200), new THREE.MeshStandardMaterial({ color: 0x0000ff }));
+            player = new THREE.Mesh(new THREE.BoxGeometry(80, 100, 160), new THREE.MeshStandardMaterial({ color: 0x0000ff }));
             scene.add(player);
             document.getElementById('yukleme').style.display = 'none';
         }
