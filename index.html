@@ -19,6 +19,7 @@
     <script>
         let scene, camera, renderer, player, mixer, clock = new THREE.Clock();
         let targetX = 0, score = 0, currentQuestionIndex = 0, gates = [];
+        let mountain; // Dağ objesi
 
         const questions = [
             { q: "Tarihteki ilk Türk devleti hangisidir?", options: ["Asya Hun", "Osmanlı"], correct: 0 },
@@ -31,9 +32,9 @@
         function init() {
             scene = new THREE.Scene();
             scene.background = new THREE.Color(0x0a1a3e); 
-            scene.fog = new THREE.Fog(0x0a1a3e, 800, 12000);
+            scene.fog = new THREE.Fog(0x0a1a3e, 1000, 15000);
 
-            camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 1, 100000);
+            camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 1, 200000);
             renderer = new THREE.WebGLRenderer({ antialias: true });
             renderer.setSize(window.innerWidth, window.innerHeight);
             renderer.setPixelRatio(window.devicePixelRatio);
@@ -45,19 +46,42 @@
             sun.position.set(300, 1000, 800);
             scene.add(sun);
 
-            // YOL %50 DAHA KÜÇÜLTÜLDÜ (1500 -> 750) - Dar Patika
+            // DAR PATIKA YOLU
             const roadGeo = new THREE.BoxGeometry(750, 10, 1000000);
-            const roadMat = new THREE.MeshStandardMaterial({ color: 0x4a3222 }); // Biraz daha koyu toprak
+            const roadMat = new THREE.MeshStandardMaterial({ color: 0x4a3222 });
             const road = new THREE.Mesh(roadGeo, roadMat);
             road.position.y = -5;
             scene.add(road);
 
+            // HEYBETLİ DAĞ OLUŞTURMA (Yolun Sonunda)
+            function createMountain() {
+                const mountainGroup = new THREE.Group();
+                
+                // Dağ gövdesi (Konik yapı)
+                const mtGeo = new THREE.ConeGeometry(4000, 5000, 4);
+                const mtMat = new THREE.MeshStandardMaterial({ color: 0x3d3d3d, flatShading: true });
+                const mainPeak = new THREE.Mesh(mtGeo, mtMat);
+                mountainGroup.add(mainPeak);
+
+                // Karlı zirve
+                const snowGeo = new THREE.ConeGeometry(1800, 2000, 4);
+                const snowMat = new THREE.MeshStandardMaterial({ color: 0xffffff, flatShading: true });
+                const snowCap = new THREE.Mesh(snowGeo, snowMat);
+                snowCap.position.y = 1600; 
+                mountainGroup.add(snowCap);
+
+                mountainGroup.position.set(0, 1500, -25000); // Çok ileriye koyduk
+                scene.add(mountainGroup);
+                return mountainGroup;
+            }
+            mountain = createMountain();
+
             const loader = new THREE.GLTFLoader();
 
-            // BOZKURT (Dar yolda daha büyük görünecek)
+            // BOZKURT
             loader.load('wolf.glb', (gltf) => {
                 player = gltf.scene;
-                player.scale.set(90, 90, 90); 
+                player.scale.set(95, 95, 95); 
                 player.rotation.y = Math.PI;
                 scene.add(player);
                 if(gltf.animations[0]) {
@@ -67,33 +91,26 @@
                 spawnQuestionSet();
             });
 
-            // AĞAÇLAR (Yolun hemen kenarına çekildi)
+            // DEV AĞAÇLAR
             loader.load('agac.glb', (gltf) => {
                 const treeModel = gltf.scene;
-                for (let i = 0; i < 180; i++) {
+                for (let i = 0; i < 200; i++) {
                     let tL = treeModel.clone();
                     let tR = treeModel.clone();
-                    
-                    let s = 200 + Math.random() * 150; 
+                    let s = 250 + Math.random() * 200; 
                     tL.scale.set(s, s, s); tR.scale.set(s, s, s);
-
                     let z = -i * 1200 - 1000;
-                    // Dar yola göre konumlandırma (X: -450 ve 450 civarı)
-                    tL.position.set(-500 - Math.random() * 300, 0, z);
-                    tR.position.set(500 + Math.random() * 300, 0, z);
-                    
+                    tL.position.set(-600 - Math.random() * 400, 0, z);
+                    tR.position.set(600 + Math.random() * 400, 0, z);
                     tL.rotation.y = Math.random() * Math.PI;
                     tR.rotation.y = Math.random() * Math.PI;
-
                     scene.add(tL, tR);
                 }
             });
 
-            // KONTROLLER (Dar yol için hassas ayar)
             window.addEventListener('pointermove', (e) => {
                 if(e.buttons === 1 || e.pointerType === 'touch') {
-                    // Hareket alanı daraltıldı
-                    targetX = Math.max(-320, Math.min(320, targetX + e.movementX * 2));
+                    targetX = Math.max(-350, Math.min(350, targetX + e.movementX * 2.2));
                 }
             });
 
@@ -115,18 +132,16 @@
             if(!player) return;
             let q = questions[currentQuestionIndex];
             document.getElementById('question-display').innerText = q.q;
-            // Kapılar artık çok daha yakın (X: -180, 180)
-            createGate(q.options[0], -190, player.position.z - 4000, q.correct === 0);
-            createGate(q.options[1], 190, player.position.z - 4000, q.correct === 1);
+            createGate(q.options[0], -200, player.position.z - 4500, q.correct === 0);
+            createGate(q.options[1], 200, player.position.z - 4500, q.correct === 1);
         }
 
         function createGate(txt, x, z, isCorrect) {
-            // Kapı boyutları dar yola göre küçültüldü
             const gate = new THREE.Mesh(
-                new THREE.BoxGeometry(350, 250, 30),
-                new THREE.MeshStandardMaterial({ map: createTextTexture ? createGateTexture(txt) : null })
+                new THREE.BoxGeometry(380, 280, 40),
+                new THREE.MeshStandardMaterial({ map: createGateTexture(txt) })
             );
-            gate.position.set(x, 125, z);
+            gate.position.set(x, 140, z);
             gate.userData = { isCorrect, active: true };
             scene.add(gate);
             gates.push(gate);
@@ -136,19 +151,22 @@
             requestAnimationFrame(animate);
             let d = clock.getDelta();
             if (player) {
-                player.position.z -= 18; 
+                player.position.z -= 20; 
                 player.position.x += (targetX - player.position.x) * 0.15;
 
-                // Kamera açısı dar patikaya odaklandı
-                camera.position.set(player.position.x * 0.5, 400, player.position.z + 800);
-                camera.lookAt(player.position.x, 150, player.position.z - 400);
+                camera.position.set(player.position.x * 0.5, 450, player.position.z + 900);
+                camera.lookAt(player.position.x, 180, player.position.z - 500);
+
+                // Dağı sürekli ileriye taşıyoruz ki yol hiç bitmesin (Sonsuz yol illüzyonu)
+                if(mountain) {
+                    mountain.position.z = player.position.z - 15000;
+                }
 
                 gates.forEach((g) => {
-                    if (g.userData.active && Math.abs(g.position.z - player.position.z) < 150 && Math.abs(g.position.x - player.position.x) < 200) {
+                    if (g.userData.active && Math.abs(g.position.z - player.position.z) < 150 && Math.abs(g.position.x - player.position.x) < 220) {
                         g.userData.active = false;
                         if (g.userData.isCorrect) score += 100; else score = Math.max(0, score - 50);
                         document.getElementById('score').innerText = score;
-                        
                         setTimeout(() => {
                             gates.forEach(gt => scene.remove(gt));
                             gates = [];
